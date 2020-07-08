@@ -8,7 +8,7 @@ import (
 	"time"
 
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"github.com/karalabe/hid"
+	"github.com/sstallion/go-hid"
 )
 
 var (
@@ -102,31 +102,29 @@ func main() {
 
 	flag.Parse()
 
-	devs := hid.Enumerate(0x04d9, 0xa052)
-	if len(devs) == 0 {
-		fmt.Println("device not found")
-		os.Exit(1)
-	}
-
-	dev, err := devs[0].Open()
+	dev, err := hid.OpenFirst(0x04d9, 0xa052)
 	if err != nil {
 		fmt.Printf("can't open device - %v\n", err)
 		os.Exit(1)
 	}
 
-	time.AfterFunc(time.Second*30, func() {
+	time.AfterFunc(time.Second*60, func() {
 		println("timeout...")
 		os.Exit(2)
 	})
+
+	magic := make([]byte, 8)
+	dev.SendFeatureReport(magic)
 
 	for temperature == 0 || co2 == 0 {
 		if err := getData(dev); err != nil {
 			fmt.Printf("error: %v\n", err)
 			os.Exit(1)
 		}
+		fmt.Print(".")
 	}
 
-	fmt.Printf("temp: %.2f\nco2: %d\n", temperature, co2)
+	fmt.Printf("\n\ntemp: %.2f\nco2: %d\n", temperature, co2)
 
 	if *server != "" {
 		if err := sendMqtt(*server, *topic, *user, *password); err != nil {
